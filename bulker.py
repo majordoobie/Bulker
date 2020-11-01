@@ -2,6 +2,7 @@
 Bulker is used to change the name of several files in a directory in a easy and convinient way
 """
 import argparse
+import traceback
 from pathlib import PosixPath, Path
 from re import search as re_search
 from re import error as re_error
@@ -10,7 +11,7 @@ from sys import argv, exit
 TOOL_TIP = '--append= | --prefix | --index=0 | --stitch=split | --exclude= | --include='
 
 class Bulker:
-    def __init__(self, _dir, append=None, prefix=None, split=None, index='0', stitch=None, exlude=None, include=None, execute=False):
+    def __init__(self, _dir, append=None, prefix=None, split=None, index='0', stitch=None, exclude=None, include=None, execute=False):
         self._verify_dir(_dir)
         self.append = append
         self.prefix = prefix
@@ -23,10 +24,10 @@ class Bulker:
 
         self.index = str(index).split(',')
 
-        if exlude:
-            self.exclude = str(exlude).split(',')
+        if exclude:
+            self.exclude = str(exclude).split(',')
         else:
-            self.exclude = exlude
+            self.exclude = exclude
 
         if include:
             self.include = str(include).split(',')
@@ -46,12 +47,28 @@ class Bulker:
             # Check if the file hits the exclusion list
             try:
                 if self.exclude:
-                    exclude_list = f'(?:{"|".join(self.exclude)}'
+                    exclude_list = f'(?:{"|".join(self.exclude)})'
                     if re_search(exclude_list, file.name):
                         self.files_excluded.append(file)
                         continue
             except re_error as error:
+                exc = ''.join(traceback.format_exception(type(error), error, error.__traceback__, chain=True))
+                print(exc)
                 exit(f'Bad regex used:\n{error}')
+
+            try:
+                if self.include:
+                    include_list = f'(?:{"|".join(self.exclude)})'
+                    if not re_search(include_list, file.name):
+                        self.files_excluded.append(file)
+                        continue
+            except re_error as error:
+                exc = ''.join(traceback.format_exception(type(error), error, error.__traceback__, chain=True))
+                print(exc)
+                exit(f'Bad regex used:\n{error}')
+
+
+
 
 
             # Attach strings after file passes regex values
@@ -64,42 +81,42 @@ class Bulker:
                 new_name = f'{self.prefix}{new_name}'
             self.files_included.append((file, new_name))
 
-            # Only make changes if flag is set
-            if self.exclude:
-                self._execute()
+        # Only make changes if flag is set
+        if self.execute:
+            self._execute()
 
-            # Display the potential changes
-            else:
-                space = 0
-                for tup in self.files_included:
-                    if space < len(tup[0].name):
-                        space = len(tup[0].name)
-                print(TOOL_TIP)
-                print(f'To execute your changes, add --execute=True\n')
-                print(f'{" ":20}[Files included in the changes]'
-                      f'({len(self.files_included)}/'
-                      f'{len(self.files_included) + len(self.files_excluded)})')
+        # Display the potential changes
+        else:
+            space = 0
+            for tup in self.files_included:
+                if space < len(tup[0].name):
+                    space = len(tup[0].name)
+            print(TOOL_TIP)
+            print(f'To execute your changes, add --execute=True\n')
+            print(f'{" ":20}[Files included in the changes]'
+                  f'({len(self.files_included)}/'
+                  f'{len(self.files_included) + len(self.files_excluded)})')
 
-                for tup in self.files_included:
-                    before = f'{tup[0].name:<{space}}'
-                    if tup[1]:
-                        after = tup[1]
-                    else:
-                        after = ''
-                    print(f'{before} > {after}')
+            for tup in self.files_included:
+                before = f'{tup[0].name:<{space}}'
+                if tup[1]:
+                    after = tup[1]
+                else:
+                    after = ''
+                print(f'{before} > {after}')
 
 
-                if self.files_excluded:
-                    print(f'\n{" ":>20}[Files excluded in the changes]'
-                          f'({len(self.files_excluded)}/'
-                          f'f{len(self.files_included) + len(self.files_excluded)})')
+            if self.files_excluded:
+                print(f'\n{" ":>20}[Files excluded in the changes]'
+                      f'({len(self.files_excluded)}/'
+                      f'f{len(self.files_included) + len(self.files_excluded)})')
 
-                for _file in self.files_excluded:
-                    print(_file.name)
+            for _file in self.files_excluded:
+                print(_file.name)
 
     def _split(self, new_file):
         # split string based on the user input
-        split_list = new_file.slit(self.split)
+        split_list = new_file.split(self.split)
         # Create a dix length list based on sixe of split_list
         index_list = [None] * len(split_list)
 
@@ -132,17 +149,32 @@ class Bulker:
 def get_args():
     TOOL_TIP = '--append= | --prefix | --index=0 | --stitch=split | --exclude= | --include='
     parser = argparse.ArgumentParser(description='Intuitive command line bulk file rename')
+    parser.add_argument('directory', help='Directory to look into')
     parser.add_argument('-i', '--include', metavar='', dest='include', help='Posix regex of the files to include in the directory')
     parser.add_argument('-e', '--exclude', metavar='', dest='exclude', help='Posix regex of the files no exclude in the directory')
     parser.add_argument('-a', '--append', metavar='', dest='append', help='Append a string to the included files')
     parser.add_argument('-p', '--prefix', metavar='', dest='prefix', help='Prefix a string to the included files')
-    parser.add_argument('-s', '--stitch', metavar='', dest='stitch', help='String used to concatenate the name of the file back together')
+    parser.add_argument('-s', '--split', metavar='', dest='split', help='Sting used to split the file name')
+    parser.add_argument('-t', '--stitch', metavar='', dest='stitch', help='String used to concatenate the name of the file back together')
     parser.add_argument('-x', '--index', metavar='', dest='index', help='List of index you want to keep')
+    parser.add_argument('--execute', dest='execute', action='store_true')
 
     return parser.parse_args()
 
 def main():
     args = get_args()
+    Bulker(
+        args.directory,
+        args.append,
+        args.prefix,
+        args.split,
+        args.index,
+        args.stitch,
+        args.exclude,
+        args.include,
+        args.execute
+    )
+
 
 
 if __name__ == '__main__':
