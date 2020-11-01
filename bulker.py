@@ -13,7 +13,7 @@ class Bulker:
     def __init__(self, _dir, append=None, prefix=None, split=None, index='0', stitch=None, exlude=None, include=None, execute=False):
         self._verify_dir(_dir)
         self.append = append
-        self.prefix = self.prefix
+        self.prefix = prefix
         self.split = split
 
         if stitch:
@@ -27,6 +27,11 @@ class Bulker:
             self.exclude = str(exlude).split(',')
         else:
             self.exclude = exlude
+
+        if include:
+            self.include = str(include).split(',')
+        else:
+            self.include = include
 
         self.execute = execute
         self.files_included = []
@@ -127,7 +132,13 @@ class Bulker:
 def get_args():
     TOOL_TIP = '--append= | --prefix | --index=0 | --stitch=split | --exclude= | --include='
     parser = argparse.ArgumentParser(description='Intuitive command line bulk file rename')
+    parser.add_argument('-i', '--include', metavar='', dest='include', help='Posix regex of the files to include in the directory')
+    parser.add_argument('-e', '--exclude', metavar='', dest='exclude', help='Posix regex of the files no exclude in the directory')
     parser.add_argument('-a', '--append', metavar='', dest='append', help='Append a string to the included files')
+    parser.add_argument('-p', '--prefix', metavar='', dest='prefix', help='Prefix a string to the included files')
+    parser.add_argument('-s', '--stitch', metavar='', dest='stitch', help='String used to concatenate the name of the file back together')
+    parser.add_argument('-x', '--index', metavar='', dest='index', help='List of index you want to keep')
+
     return parser.parse_args()
 
 def main():
